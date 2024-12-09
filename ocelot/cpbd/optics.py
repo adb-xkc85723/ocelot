@@ -7,7 +7,7 @@ from ocelot.cpbd.transformations.transfer_map import TransferMap
 from ocelot.cpbd.beam import Twiss, twiss_iterable_to_df
 
 from ocelot.cpbd.r_matrix import *
-from ocelot.cpbd.tm_utils import SecondOrderMult
+from ocelot.cpbd.tm_utils import SecondOrderMult, transfer_maps_mult
 from ocelot.cpbd.transformations.second_order import SecondTM
 
 _logger = logging.getLogger(__name__)
@@ -85,6 +85,38 @@ def lattice_transfer_map(lattice, energy):
     lattice.R = Ra
     lattice.B = Ba
     return Ra
+    
+def lattice_transfer_map_z(lattice, energy, zfin):
+    """
+    Function calculates transfer maps, first order only, for the whole lattice, up to `zfin`.
+
+    :param lattice: MagneticLattice
+    :param energy: the initial electron beam energy [GeV]
+    :param zfin: the final z position in the accelerator lattice [m]
+    :return: first_order_tms - matrix
+    :return: elem - element located at zfin
+    """
+
+    Ra = np.eye(6)
+    Ta = np.zeros((6, 6, 6))
+    Ba = np.zeros((6, 1))
+    E = energy
+    i = 0
+    elem = lattice.sequence[i]
+    L = elem.l
+    while zfin > L:
+        for Rb, Bb, Tb, tm in zip(elem.R(E), elem.B(E), elem.T(E), elem.tms):
+            Ba, Ra, Ta = transfer_maps_mult(Ba, Ra, Ta, Bb, Rb, Tb)
+            # Ba = np.dot(Rb, Ba) + Bb
+            E += tm.get_delta_e()
+        i += 1
+        elem = lattice.sequence[i]
+        L += elem.l
+    delta_l = zfin - (L - elem.l)
+    first_order_tms = np.dot(lattice.sequence[i].get_section_tms(start_l=0.0, delta_l=delta_l, first_order_only=True)[-1].get_params(E).R, Ra)
+
+    return first_order_tms, elem
+
 
 
 def trace_z(lattice, obj0, z_array):
