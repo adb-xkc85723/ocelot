@@ -27,6 +27,8 @@ __all__ = ['Twiss', "Beam", "Particle", "get_current", "get_envelope", "generate
             "CSR",                                                                              # csr
             "SpaceCharge", "LSC",                                                               # sc
             "Wake", "WakeTable", "WakeKick", "WakeTableDechirperOffAxis",                       # wake
+            "IBS",                                                                              # ibs
+            "MBI",                                                                              # mbi
             "BeamTransform", "SmoothBeam", "EmptyProc", "PhysProc", "LaserHeater",
             "LaserModulator", "SpontanRadEffects", "PhaseSpaceAperture",
             "RectAperture", "EllipticalAperture",
@@ -61,6 +63,8 @@ from ocelot.cpbd.sc import *
 from ocelot.cpbd.csr import *
 from ocelot.cpbd.wake3D import *
 from ocelot.cpbd.physics_proc import *
+from ocelot.cpbd.mbi import *
+from ocelot.cpbd.ibs import *
 from ocelot.cpbd.navi import Navigator
 
 
