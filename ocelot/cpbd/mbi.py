@@ -221,11 +221,12 @@ class MBI(PhysProc):
                 for j, b in enumerate(self.bf[i]):
                     fac = 0.5 if j == 0 else 1
                     distance = self.slice_params[-1]['s'] if j == 0 else (slice_params[j]['s'] - slice_params[j-1]['s'])
-                    k0r = distance * fac * self.kernel_K0(l, slice_params, optics_map, j, elem)
+                    k0, k1, k2 = self.kernels(l, slice_params, optics_map, j, elem)
+                    k0r = distance * fac * k0#self.kernel_K0(l, slice_params, optics_map, j, elem)
                     k0tot.append(abs((k0r.real * b) + (k0r.imag * b)))
-                    k1r = distance * fac * self.kernel_K1(l, slice_params, optics_map, j, elem)
+                    k1r = distance * fac * k1#self.kernel_K1(l, slice_params, optics_map, j, elem)
                     k1tot.append(abs((k1r.real * b) + (k1r.imag * b)))
-                    k2r = distance * fac * self.kernel_K2(l, slice_params, optics_map, j, elem)
+                    k2r = distance * fac * k2#self.kernel_K2(l, slice_params, optics_map, j, elem)
                     k2tot.append(abs((k2r.real * b) + (k2r.imag * b)))
                     k2tot[-1] *= (slice_params[j]['sdelta'] ** 2)
                     k0tot[-1] *= self.bf[i][j]
@@ -264,11 +265,12 @@ class MBI(PhysProc):
                     for j, b in enumerate(self.bf[h][i]):
                         fac = 0.5 if j == 0 else 1
                         distance = sli[-1]['s'] if j == 0 else (sli[j]['s'] - sli[j-1]['s'])
-                        k0r = distance * fac * self.kernel_K0(l, sli, optics_map, j, elem)
+                        k0, k1, k2 = self.kernels(l, slice_params, optics_map, j, elem)
+                        k0r = distance * fac * k0#self.kernel_K0(l, sli, optics_map, j, elem)
                         k0tot.append(abs((k0r.real * b) + (k0r.imag * b)))
-                        k1r = distance * fac * self.kernel_K1(l, sli, optics_map, j, elem)
+                        k1r = distance * fac * k1#self.kernel_K1(l, sli, optics_map, j, elem)
                         k1tot.append(abs((k1r.real * b) + (k1r.imag * b)))
-                        k2r = distance * fac * self.kernel_K2(l, sli, optics_map, j, elem)
+                        k2r = distance * fac * k2#self.kernel_K2(l, sli, optics_map, j, elem)
                         k2tot.append(abs((k2r.real * b) + (k2r.imag * b)))
                     self.bf[h][i][-1] += np.nansum(k1tot)
         return [self.bf, self.pf]
@@ -379,6 +381,32 @@ class MBI(PhysProc):
         r56tau = optics_map[-1][4, 5]
         return (r56s * r55tau) - (r56tau * r55s) + (r51tau * r52s) - (r51s * r52tau) + (r53tau * r54s) - (r53s * r54tau)
         # return [r56s, r56tau, r51tau, r52s, r51s, r52tau, r53tau, r54s, r53s, r54tau]
+
+    def kernels(self, lamb: float, slice_params: list, optics_map: list, i1: int, elem: Element) -> list:
+        '''
+        Kernels (Eq. (A17a + b))
+
+        :param lamb: initial modulation wavelength [m]
+        :param slice_params: list of dicts containing beam slice properties
+        :param optics_map: list of first-order transfer matrices
+        :param i1: index from which to calculate
+        :param elem: `~ocelot.cpbd.elements.element.Element` at the current position
+
+        :return: K0, K1, K2
+        '''
+        currentfac = slice_params[i1]['I'] / ((slice_params[i1]['gamma']) * I_Alfven)
+        compfac = (slice_params[i1]['I'] / slice_params[0]['I'])
+        lamb_compressed = lamb / compfac
+        impedancefac = self.lscimpedance(lamb_compressed, slice_params, i1) if self.lsc else 0
+        if self.csr and (elem.__class__ in [RBend, SBend, Bend]):
+            impedancefac += self.csrimpedance(lamb_compressed, elem)
+        ldfac = self.ldtaus(lamb_compressed, slice_params, optics_map, i1)
+        k0 = currentfac * impedancefac * ldfac
+        kfac = k_wn(lamb_compressed)
+        r56fac = self.r56taus(optics_map, i1)
+        k1 = k0 * kfac * r56fac
+        k2 = k0 * (kfac * r56fac) ** 2
+        return [k0, k1, k2]
 
     def kernel_K0(self, lamb: float, slice_params: list, optics_map: list, i1: int, elem: Element) -> float:
         '''
