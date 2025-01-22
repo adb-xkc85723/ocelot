@@ -80,8 +80,7 @@ class IBS(PhysProc):
         #self.lattice = None
         self.zpos = 0
         self.slice = None
-        self.dist = []
-        self.slice_params = []
+        self.slice_params = {}
         self.optics_map = []
 
     def get_slice_params(self, p_array: ParticleArray):
@@ -121,19 +120,15 @@ class IBS(PhysProc):
             return
         logger.debug(" LSC applied, dz =" + str(dz))
         p_array_c = copy.deepcopy(p_array)
-        self.slice_params.append(self.get_slice_params(p_array_c))
-        self.z0 = self.slice_params[-1]['s'] - self.slice_params[0]['s']
-        self.ltm, self.elem = lattice_transfer_map_z(self.lattice, self.slice_params[0]['me'], self.z0)
+        self.slice_params = self.get_slice_params(p_array_c)
+        self.zpos += dz
+        self.ltm, self.elem = lattice_transfer_map_z(self.lattice, self.slice_params['me'], self.zpos)
         self.optics_map.append(self.ltm)
-        self.dist.append(self.z0)
-        print('\n')
         if len(self.slice_params) > 1:
-            distance = (self.slice_params[-1]['s'] - self.slice_params[-2]['s'])
-            sigd = abs(distance * self.sigd_ibs(self.slice_params))
-            print(sigd)
+            sigd = abs(dz * self.sigd_ibs(self.slice_params))
             sigdvals = np.random.normal(0, sigd, len(p_array.rparticles[5]))
             p_array.rparticles[5] += [i for i in sigdvals]
-            print(f"sdelta {self.slice_params[-1]['sdelta']} sigd {sigd}")
+            print(f"sdelta {self.slice_params['sdelta']} sigd {sigd}")
 
     def qmax(self, slice_params, distance):
         '''
@@ -144,47 +139,30 @@ class IBS(PhysProc):
 
         :return: [log]
         '''
-        numer = distance * (slice_params[-1]['q'] / q_e) * (ro_e**2)
-        denom = 2 * (slice_params[-1]['ex'])**1.5 * slice_params[-1]['bunch_length'] * np.sqrt(slice_params[-1]['beta_x'])
+        numer = distance * (slice_params['q'] / q_e) * (ro_e**2)
+        denom = 2 * (slice_params['ex'])**1.5 * slice_params['bunch_length'] * np.sqrt(slice_params['beta_x'])
         return np.sqrt(numer / denom)
 
     def coulomb_log(self, slice_params):
-        denom = ro_e / (slice_params[-1]['sig_xp'])**2
+        denom = ro_e / (slice_params['sig_xp'])**2
         # return np.log(slice_params[-1]['sig_x'] / denom)
-        return np.log(slice_params[-1]['gamma']**2 * slice_params[-1]['sig_xp']**2 * slice_params[-1]['sig_x'] / ro_e)
+        return np.log(slice_params['gamma']**2 * slice_params['sig_xp']**2 * slice_params['sig_x'] / ro_e)
         # return np.log(self.qmax(slice_params, distance) * np.sqrt(slice_params[-1]['ex'] * slice_params[-1]['ey']) / (2 * np.sqrt(2) * ro_e))
 
-    def gradient(self, slice_params, distance):
-        return (slice_params[-1]['gamma'] - slice_params[-2]['gamma']) / (m_e_MeV * distance)
-
-    def ibs_k(self, slice_params, distance):
-        '''
-        Eq. 28: factor for accelerating gradient
-
-        :param slice_params: beam slice parameters
-        :param distance: distance travelled
-
-        :return: k
-        '''
-        grad = self.gradient(slice_params, distance)
-        numer = ro_e * (slice_params[-1]['q'] / q_e) * m_e_MeV
-        denom = 4 * grad * (slice_params[-1]['ex']**1.5) * (slice_params[-1]['beta_x']**0.5) * slice_params[-1]['bunch_length']
-        return numer / denom
-
     def form_factor(self, slice_params):
-        zeta = (slice_params[-1]['sdelta'] * slice_params[-1]['sig_x'] / slice_params[-1]['ex']) ** 2
+        zeta = (slice_params['sdelta'] * slice_params['sig_x'] / slice_params['ex']) ** 2
         return (1 - zeta**0.25) * np.log(zeta + 1) / zeta
 
     def sigd_ibs(self, slice_params):
         logfac = self.coulomb_log(slice_params)
-        npart = slice_params[-1]['q'] / q_e
-        sdelta = slice_params[-1]['sdelta']
+        npart = slice_params['q'] / q_e
+        sdelta = slice_params['sdelta']
         numer = (ro_e ** 2) * npart * logfac# * sdelta#  * logfac
 
-        emit = np.sqrt(slice_params[-1]['ex'] * slice_params[-1]['ey'])
-        sigx = slice_params[-1]['sig_x']
-        bunchlength = slice_params[-1]['bunch_length']
-        gamma = slice_params[-1]['gamma']
+        emit = np.sqrt(slice_params['ex'] * slice_params['ey'])
+        sigx = slice_params['sig_x']
+        bunchlength = slice_params['bunch_length']
+        gamma = slice_params['gamma']
         speed_cub = np.sqrt((1 - (gamma ** -2))) ** 3
 
         # denom = 8 * speed_cub * emit * sigx * bunchlength * (gamma ** 2) * (sdelta ** 2)
@@ -193,6 +171,23 @@ class IBS(PhysProc):
         formfac = self.form_factor(slice_params)
 
         return (numer / denom) * formfac
+
+    # def gradient(self, slice_params, distance):
+    #     return (slice_params['gamma'] - slice_params['gamma']) / (m_e_MeV * distance)
+    #
+    # def ibs_k(self, slice_params, distance):
+    #     '''
+    #     Eq. 28: factor for accelerating gradient
+    #
+    #     :param slice_params: beam slice parameters
+    #     :param distance: distance travelled
+    #
+    #     :return: k
+    #     '''
+    #     grad = self.gradient(slice_params, distance)
+    #     numer = ro_e * (slice_params[-1]['q'] / q_e) * m_e_MeV
+    #     denom = 4 * grad * (slice_params[-1]['ex']**1.5) * (slice_params[-1]['beta_x']**0.5) * slice_params[-1]['bunch_length']
+    #     return numer / denom
 
     # def sigd_ibs(self, slice_params, optics_map, distance, elem):
     #     '''

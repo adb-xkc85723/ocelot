@@ -17,6 +17,8 @@ from ocelot.adaptors.astra2ocelot import (astraBeam2particleArray,
                                           particleArray2astraBeam)
 from ocelot.adaptors.csrtrack2ocelot import (csrtrackBeam2particleArray,
                                              particleArray2csrtrackBeam)
+from ocelot.adaptors.elegant2ocelot import (elegantBeam2particleArray, 
+                                             particleArray2elegantBeam)
 
 try:
     from ocelot.adaptors.pmd import load_pmd, particle_array_to_particle_group
@@ -235,7 +237,7 @@ def load_particle_array_from_npz(filename, print_params=False):
     return p_array
 
 
-def load_particle_array(filename, print_params=False):
+def load_particle_array(filename, print_params=False, charge=None):
     """
     Universal function to load beam file, *.ast (ASTRA), *.fmt1 (CSRTrack) or *.npz format
 
@@ -255,8 +257,10 @@ def load_particle_array(filename, print_params=False):
         parray = csrtrackBeam2particleArray(filename)
     elif file_extension == ".h5":
         parray = load_pmd(filename)
+    elif (file_extension == '.sdds') or (file_extension == '.out'):
+        parray = elegantBeam2particleArray(filename, charge=charge)
     else:
-        raise Exception("Unknown format of the beam file: " + file_extension + " but must be *.ast, *fmt1 or *.npz ")
+        raise Exception("Unknown format of the beam file: " + file_extension + " but must be *.ast, *fmt1, *.sdds, or *.npz ")
 
     if print_params:
         print(parray)
@@ -284,6 +288,8 @@ def save_particle_array(filename, p_array):
         particleArray2csrtrackBeam(p_array, filename)
     elif file_extension == ".h5":
         particle_array_to_particle_group(p_array).write(filename)
+    elif file_extension == '.sdds':
+        particleArray2elegantBeam(p_array, filename)
     else:
         particle_array_to_particle_group(p_array).write(filename)
         raise Exception("Unknown format of the beam file: " + file_extension + " but must be *.ast, *.fmt1 or *.npz")

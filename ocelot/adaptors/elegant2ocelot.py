@@ -10,9 +10,12 @@ lat = MagneticLattice(sequence)
 '''
 import csv
 from ocelot.cpbd.elements import *
+from ocelot.cpbd.beam import *
 from math import *
 import sys
 import numpy as np
+import subprocess
+import ASTeCsdds.sdds as sdds
 
 def read_file(filename):
     if sys.version_info[0] < 3:
@@ -23,6 +26,79 @@ def read_file(filename):
     data=[row for row in data]
     f.close()
     return data
+
+def elegantBeam2particleArray(filename, charge=None):
+    subprocess.run(['sddsconvert -ascii ' + filename], shell=True)
+    sddsf = sdds.SDDS(0)
+    sddsf.load(filename)
+    fc = open(filename, "r").readlines()
+    sddsdata = {}
+    sddsdata.update({'parameter': {}})
+    sddsdata.update({'column': {}})
+    paramindex = 0
+    columnindex = 0
+    index = 0
+    for n, d in zip(sddsf.parameterName, sddsf.parameterData):
+        sddsdata['parameter'].update({n: d[0]})
+    for n, d in zip(sddsf.columnName, sddsf.columnData):
+        sddsdata['column'].update({n: d[0]})
+    n = int(sddsdata['parameter']['Particles'])
+    # allcols = np.zeros((n, len(list(sddsdata['column'].keys()))))
+    # for i, f in enumerate(params):
+    #     pkey = list(sddsdata['parameter'].keys())[i]
+    #     if sddsdata['parameter'][pkey]['type'] == 'string':
+    #         sddsdata['parameter'][pkey].update({'value': f.strip("\n")})
+    #     else:
+    #         sddsdata['parameter'][pkey].update({'value': float(f.strip("\n"))})
+    # for i, f in enumerate(cols):
+    #     allcols[i] = [float(o) for o in f.split()]
+    # for i, c in enumerate(np.transpose(allcols)):
+    #     ckey = list(sddsdata['column'].keys())[i]
+    #     sddsdata['column'][ckey].update({'value': c})
+    p_array = ParticleArray(n=n)
+    try:
+        p_array.E = sddsdata['parameter']['pCentral'] * 0.511 * 1e-3
+        pCentral = sddsdata['parameter']['pCentral']
+    except:
+        p_array.E = np.mean(sddsdata['column']['p']) * 0.511 * 1e-3
+        pCentral = np.mean(sddsdata['column']['p'])
+
+    p = sddsdata['column']['p']
+    E = [pp * 0.511 * 1e-3 for pp in p]
+    p_array.rparticles[5] = [((e - (pCentral * 0.511 * 1e-3)) / p_array.E) for e in E]
+
+    p_array.rparticles[0] = sddsdata['column']['x']
+    p_array.rparticles[1] = sddsdata['column']['xp']
+    p_array.rparticles[2] = sddsdata['column']['y']
+    p_array.rparticles[3] = sddsdata['column']['yp']
+    p_array.rparticles[4] = [ti * 299792458 for ti in sddsdata['column']['t']]
+    try:
+        p_array.q_array = np.ones(n) * sddsdata['parameter']['Charge'] / n
+    except:
+        p_array.q_array = np.ones(n) * charge / n
+
+    try:
+        p_array.s = sddsdata['parameter']['s']
+    except:
+        p_array.s = np.mean(p_array.rparticles[4])
+
+    return p_array
+
+
+def particleArray2elegantBeam(p_array, filename):
+    p=p_array.energies*1e3/0.511
+    t=p_array.tau()/299792458
+    np.savetxt('test.dat',np.transpose([p_array.x(),p_array.px(),p_array.y(),p_array.py(),t,p]))
+    with open('test.dat','r') as f:
+        c=f.readlines()
+
+    c.insert(0,str(p_array.E*1e3/0.511)+'\n')
+    c.insert(1,str(np.sum(p_array.q_array))+'\n')
+    c.insert(2,str(p_array.s))
+    with open('test.dat','w') as f:
+        c="".join(c)
+        f.write(c)
+    subprocess.run(['plaindata2sdds test.dat ' + filename + ' -separator=" " -noRowCount -parameter=pCentral,float,units="m\$be\$nc" -parameter=Charge,float,units=C -parameter=s,float,units=m -column=x,double,units=m -column=xp,double -column=y,double,units=m -column=yp,double -column=t,double,units=s -column=p,double,units="m\$be$nc"'],shell=True)
 
 
 def read_twi_file(namefile):

@@ -1674,7 +1674,7 @@ def slice_analysis_transverse(parray, Mslice, Mcur, p, iter):
 
 
 class SliceParameters:
-    SP_TO_TWISS_NAMES: dict[str, str] = {"ex": "emit_x",
+    SP_TO_TWISS_NAMES: dict = {"ex": "emit_x",
                                          "ey": "emit_y",
                                          "exn": "emit_xn",
                                          "eyn": "emit_yn",
@@ -1690,7 +1690,7 @@ class SliceParameters:
                                          "gamma_x": "gamma_x",
                                          "gamma_y": "gamma_y"}
 
-    VARIANCE_SP_NAMES: dict[str, str] = {"se": "pp",
+    VARIANCE_SP_NAMES: dict = {"se": "pp",
                                          "sig_x": "xx",
                                          "sig_y": "yy",
                                          "sig_xp": "pxpx",
