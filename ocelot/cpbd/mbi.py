@@ -48,7 +48,6 @@ def p0(lamb: float, compression_factor: float, sdelta: float, r56: float, b0: fl
     :param sdelta: fractional energy spread
     :param r56: R56 from initial to current simulation step [m]
     :param b0: bunching factor from shot noise (see `~b0`
-
     :param I0: beam current [A]
     """
     kfac = k_wn(lamb / compression_factor)
@@ -79,7 +78,7 @@ class MBI(PhysProc):
 
     .. _Tsai et al: https://journals.aps.org/prab/abstract/10.1103/PhysRevAccelBeams.23.124401
     """
-    def __init__(self, lattice: MagneticLattice, step: float=1, lamb_range: list=[1e-6, 50e-6, 10], slices: int=0, lsc: bool=True, csr: bool=True):
+    def __init__(self, lattice: MagneticLattice, step: float=1, lamb_range: list=(1e-6, 50e-6, 10), slices: int=0, lsc: bool=True, csr: bool=True):
         PhysProc.__init__(self, step)
         self.lattice = lattice
         self.lsc = lsc
@@ -165,9 +164,9 @@ class MBI(PhysProc):
         :param dz: step
         """
         if dz < 1e-10:
-            logger.debug(" LSC applied, dz < 1e-10, dz = " + str(dz))
+            logger.debug(" MBI applied, dz < 1e-10, dz = " + str(dz))
             return
-        logger.debug(" LSC applied, dz =" + str(dz))
+        logger.debug(" MBI applied, dz =" + str(dz))
         p_array_c = copy.deepcopy(p_array)
         if self.slice > 0:
             t_his = np.histogram(p_array_c.tau(), bins=self.slice)[1]
@@ -465,8 +464,8 @@ class MBI(PhysProc):
         xib = kz * rb / gamma
         besselfac = kv(1, xib)
         # initfac = (1j * constant.Z0) / (np.pi * gamma * rb)
-        initfac = (4j) / (gamma * rb)
-        lscfac = (1 - (xib * besselfac)) / xib
+        # initfac = (4j) / (gamma * rb)
+        # lscfac = (1 - (xib * besselfac)) / xib
         # return 1j * (Z0 / (np.pi * kz * (rb ** 2))) * (1 - (xib * scipy.special.kv(1, xib)))
         # return initfac * lscfac
         return 1j * (Z0 / (np.pi * gamma * rb)) * (1 - (xib * kv(1, xib) * iv(0, xib))) / xib
